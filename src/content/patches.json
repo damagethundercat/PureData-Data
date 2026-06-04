@@ -1,0 +1,38 @@
+[
+  {
+    "id": "basic-tone",
+    "participantName": "Participant A",
+    "title": "Sine Tone Study",
+    "description": "A minimal oscillator patch for checking the WebPd compile path.",
+    "pdPath": "patches/basic-tone/main.pd",
+    "downloadPath": "patches/basic-tone/main.pd",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/basic-tone"
+    }
+  },
+  {
+    "id": "unsupported-gem",
+    "participantName": "Participant B",
+    "title": "Visual Patch Sketch",
+    "description": "A patch that intentionally includes an unsupported object for fallback testing.",
+    "pdPath": "patches/unsupported-gem/main.pd",
+    "downloadPath": "patches/unsupported-gem/main.pd",
+    "playback": {
+      "status": "download-only",
+      "error": "1 object types not implemented : [gemwin]"
+    }
+  },
+  {
+    "id": "kawaii-future-bass-burst",
+    "participantName": "Demo Package",
+    "title": "Kawaii Future Bass Burst",
+    "description": "A packaged Pd Vanilla patch with included WAV samples and a 160 BPM sequencer.",
+    "pdPath": "patches/kawaii-future-bass-burst/main.pd",
+    "downloadPath": "downloads/kawaii-future-bass-burst.zip",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/kawaii-future-bass-burst"
+    }
+  }
+]

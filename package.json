@@ -1,0 +1,19 @@
+{
+  "name": "pure-data-patch-archive",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config vite.config.mjs --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build --config vite.config.mjs",
+    "preview": "vite preview --config vite.config.mjs --host 127.0.0.1",
+    "compile-patches": "node scripts/compile-patches.mjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "vite": "^6.3.5",
+    "webpd": "1.0.0-alpha.14"
+  }
+}

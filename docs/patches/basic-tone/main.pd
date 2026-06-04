@@ -1,0 +1,11 @@
+#N canvas 92 92 520 320 12;
+#X text 35 30 WebPd compatible sine preview;
+#X obj 55 82 osc~ 220;
+#X obj 55 126 *~ 0.12;
+#X obj 55 176 dac~;
+#X obj 220 82 loadbang;
+#X msg 220 126 \; pd dsp 1;
+#X connect 1 0 2 0;
+#X connect 2 0 3 0;
+#X connect 2 0 3 1;
+#X connect 4 0 5 0;

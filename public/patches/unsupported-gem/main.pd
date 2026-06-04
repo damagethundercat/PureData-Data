@@ -1,0 +1,6 @@
+#N canvas 120 120 560 340 12;
+#X text 32 32 Intentional unsupported visual object example;
+#X obj 60 86 gemwin;
+#X msg 60 132 create \, 1;
+#X obj 60 180 dac~;
+#X connect 1 0 0 0;

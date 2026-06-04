@@ -1,0 +1,6 @@
+node_modules/
+.vite/
+*.local
+dist/
+dev-server.*.log
+dev-server.pid

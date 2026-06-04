@@ -1,0 +1,792 @@
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+        <title>WebPd boilerplate</title>
+        <style>
+            #start {
+                display: none;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+            }
+            #loading {
+                width: 100%;
+                height: 100%;
+                position: fixed;
+                top: 50%;
+                transform: translateY(-50%);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>My Web Page</h1>
+        <div>For more info about usage (how to interact with the patch), you can open this HTML file in a code editor.</div>
+        <button id="start"> Start </button>
+        <div id="loading"> Loading ... </div>
+        <script src="webpd-runtime.js"></script>
+        <script>
+            // SUMMARY
+            // 1. WEB PAGE INITIALIZATION
+            // 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
+            // 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT
+
+
+            // ------------- 1. WEB PAGE INITIALIZATION
+            const loadingDiv = document.querySelector('#loading')
+            const startButton = document.querySelector('#start')
+            const audioContext = new AudioContext()
+
+            let patch = null
+            let stream = null
+            let webpdNode = null
+
+            const initApp = async () => {
+                // Register the worklet
+                await WebPdRuntime.initialize(audioContext)
+
+                // Fetch the patch code
+                response = await fetch('patch.wasm')
+                patch = await response.arrayBuffer()
+
+                // Comment this if you don't need audio input
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+                // Hide loading and show start button
+                loadingDiv.style.display = 'none'
+                startButton.style.display = 'block'
+            }
+
+            const startApp = async () => {
+                // AudioContext needs to be resumed on click to protects users 
+                // from being spammed with autoplay.
+                // See : https://github.com/WebAudio/web-audio-api/issues/345
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume()
+                }
+
+                // Setup web audio graph
+                webpdNode = await WebPdRuntime.run(
+                    audioContext, 
+                    patch, 
+                    WebPdRuntime.defaultSettingsForRun(
+                        './patch.wasm',
+                        // Comment this if you don't need to receive messages from the patch
+                        receiveMsgFromWebPd,
+                    ),
+                )
+                webpdNode.connect(audioContext.destination)
+
+                // Comment this if you don't need audio input
+                const sourceNode = audioContext.createMediaStreamSource(stream)
+                sourceNode.connect(webpdNode)
+
+                // Hide the start button
+                startButton.style.display = 'none'
+            }
+
+            startButton.onclick = startApp
+
+            initApp().
+                then(() => {
+                    console.log('App initialized')
+                })
+
+            
+            // ------------- 2. SENDING MESSAGES FROM JAVASCRIPT TO THE PATCH
+            // Use the function sendMsgToWebPd to send a message from JavaScript to an object inside your patch.
+            // 
+            // Parameters : 
+            // - nodeId: the ID of the object you want to send a message to. 
+            //          This ID is a string that has been assigned by WebPd at compilation.
+            //          You can find below the list of available IDs with hints to help you 
+            //          identify the object you want to interact with.
+            // - portletId : the ID of the object portlet to which the message should be sent. 
+            // - message : the message to send. This must be a list of strings and / or numbers.
+            // 
+            // Examples :
+            // - sending a message to a bang node of ID 'n_0_1' :
+            //          sendMsgToWebPd('n_0_1', '0', ['bang'])
+            // - sending a message to a number object of ID 'n_0_2' :
+            //          sendMsgToWebPd('n_0_2', '0', [123])
+            // 
+            const sendMsgToWebPd = (nodeId, portletId, message) => {
+                webpdNode.port.postMessage({
+                    type: 'io:messageReceiver',
+                    payload: {
+                        nodeId,
+                        portletId,
+                        message,
+                    },
+                })
+            }
+            
+            // Here is an index of objects IDs to which you can send messages, with hints so you can find the right ID.
+            // Note that by default only GUI objects (bangs, sliders, etc ...) are available.
+            //  - nodeId "n_0_4" portletId "0"
+            //      * type "msg"
+            //      * position 30 138
+            
+            //  - nodeId "n_0_5" portletId "0"
+            //      * type "msg"
+            //      * position 138 138
+            
+            //  - nodeId "n_0_6" portletId "0"
+            //      * type "msg"
+            //      * position 194 138
+            
+            //  - nodeId "n_0_14" portletId "0"
+            //      * type "msg"
+            //      * position 520 106
+            
+            //  - nodeId "n_0_17" portletId "0"
+            //      * type "msg"
+            //      * position 520 134
+            
+            //  - nodeId "n_0_20" portletId "0"
+            //      * type "msg"
+            //      * position 520 162
+            
+            //  - nodeId "n_0_23" portletId "0"
+            //      * type "msg"
+            //      * position 520 190
+            
+            //  - nodeId "n_0_26" portletId "0"
+            //      * type "msg"
+            //      * position 520 218
+            
+            //  - nodeId "n_0_29" portletId "0"
+            //      * type "msg"
+            //      * position 520 246
+            
+            //  - nodeId "n_0_32" portletId "0"
+            //      * type "msg"
+            //      * position 520 274
+            
+            //  - nodeId "n_0_35" portletId "0"
+            //      * type "msg"
+            //      * position 520 302
+            
+            //  - nodeId "n_0_38" portletId "0"
+            //      * type "msg"
+            //      * position 520 330
+            
+            //  - nodeId "n_0_41" portletId "0"
+            //      * type "msg"
+            //      * position 520 358
+            
+            //  - nodeId "n_0_44" portletId "0"
+            //      * type "msg"
+            //      * position 520 386
+            
+            //  - nodeId "n_0_47" portletId "0"
+            //      * type "msg"
+            //      * position 520 414
+            
+            //  - nodeId "n_0_50" portletId "0"
+            //      * type "msg"
+            //      * position 520 442
+            
+            //  - nodeId "n_0_53" portletId "0"
+            //      * type "msg"
+            //      * position 520 470
+            
+            //  - nodeId "n_0_187" portletId "0"
+            //      * type "msg"
+            //      * position 1612 1340
+            
+            //  - nodeId "n_0_191" portletId "0"
+            //      * type "msg"
+            //      * position 1164 1380
+            
+            //  - nodeId "n_0_192" portletId "0"
+            //      * type "msg"
+            //      * position 1200 1380
+            
+            //  - nodeId "n_0_193" portletId "0"
+            //      * type "msg"
+            //      * position 1236 1380
+            
+            //  - nodeId "n_0_194" portletId "0"
+            //      * type "msg"
+            //      * position 1272 1380
+            
+            //  - nodeId "n_0_195" portletId "0"
+            //      * type "msg"
+            //      * position 1308 1380
+            
+            //  - nodeId "n_0_196" portletId "0"
+            //      * type "msg"
+            //      * position 1344 1380
+            
+            //  - nodeId "n_0_197" portletId "0"
+            //      * type "msg"
+            //      * position 1380 1380
+            
+            //  - nodeId "n_0_198" portletId "0"
+            //      * type "msg"
+            //      * position 1416 1380
+            
+            //  - nodeId "n_0_204" portletId "0"
+            //      * type "msg"
+            //      * position 206 1680
+            
+            //  - nodeId "n_0_246" portletId "0"
+            //      * type "msg"
+            //      * position 736 1680
+            
+            //  - nodeId "n_0_288" portletId "0"
+            //      * type "msg"
+            //      * position 1266 1680
+            
+            //  - nodeId "n_0_334" portletId "0"
+            //      * type "msg"
+            //      * position 628 2170
+            
+            //  - nodeId "n_0_338" portletId "0"
+            //      * type "msg"
+            //      * position 52 2214
+            
+            //  - nodeId "n_0_339" portletId "0"
+            //      * type "msg"
+            //      * position 94 2214
+            
+            //  - nodeId "n_0_340" portletId "0"
+            //      * type "msg"
+            //      * position 136 2214
+            
+            //  - nodeId "n_0_341" portletId "0"
+            //      * type "msg"
+            //      * position 178 2214
+            
+            //  - nodeId "n_0_342" portletId "0"
+            //      * type "msg"
+            //      * position 220 2214
+            
+            //  - nodeId "n_0_343" portletId "0"
+            //      * type "msg"
+            //      * position 262 2214
+            
+            //  - nodeId "n_0_344" portletId "0"
+            //      * type "msg"
+            //      * position 304 2214
+            
+            //  - nodeId "n_0_345" portletId "0"
+            //      * type "msg"
+            //      * position 346 2214
+            
+            //  - nodeId "n_0_346" portletId "0"
+            //      * type "msg"
+            //      * position 52 2246
+            
+            //  - nodeId "n_0_347" portletId "0"
+            //      * type "msg"
+            //      * position 94 2246
+            
+            //  - nodeId "n_0_348" portletId "0"
+            //      * type "msg"
+            //      * position 136 2246
+            
+            //  - nodeId "n_0_349" portletId "0"
+            //      * type "msg"
+            //      * position 178 2246
+            
+            //  - nodeId "n_0_350" portletId "0"
+            //      * type "msg"
+            //      * position 220 2246
+            
+            //  - nodeId "n_0_351" portletId "0"
+            //      * type "msg"
+            //      * position 262 2246
+            
+            //  - nodeId "n_0_352" portletId "0"
+            //      * type "msg"
+            //      * position 304 2246
+            
+            //  - nodeId "n_0_353" portletId "0"
+            //      * type "msg"
+            //      * position 346 2246
+            
+            //  - nodeId "n_0_11" portletId "0"
+            //      * type "send"
+            //      * send "kfb_step"
+            
+
+            // ------------- 3. SENDING MESSAGES FROM THE PATCH TO JAVASCRIPT
+            // Use the function receiveMsgFromWebPd to receive a message from an object inside your patch.
+            // 
+            // Parameters : 
+            // - nodeId: the ID of the object that is sending a message. 
+            //          This ID is a string that has been assigned by WebPd at compilation.
+            //          You can find below the list of available IDs with hints to help you 
+            //          identify the object you want to interact with.
+            // - portletId : the ID of the object portlet that is sending the message.
+            // - message : the message that was sent. It is a list of strings and / or numbers.
+            const receiveMsgFromWebPd = (nodeId, portletId, message) => {
+                if (nodeId === "n_0_4" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_4" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 30 138\n'
+                    )
+                }
+                if (nodeId === "n_0_5" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_5" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 138 138\n'
+                    )
+                }
+                if (nodeId === "n_0_6" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_6" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 194 138\n'
+                    )
+                }
+                if (nodeId === "n_0_14" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_14" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 106\n'
+                    )
+                }
+                if (nodeId === "n_0_17" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_17" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 134\n'
+                    )
+                }
+                if (nodeId === "n_0_20" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_20" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 162\n'
+                    )
+                }
+                if (nodeId === "n_0_23" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_23" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 190\n'
+                    )
+                }
+                if (nodeId === "n_0_26" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_26" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 218\n'
+                    )
+                }
+                if (nodeId === "n_0_29" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_29" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 246\n'
+                    )
+                }
+                if (nodeId === "n_0_32" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_32" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 274\n'
+                    )
+                }
+                if (nodeId === "n_0_35" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_35" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 302\n'
+                    )
+                }
+                if (nodeId === "n_0_38" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_38" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 330\n'
+                    )
+                }
+                if (nodeId === "n_0_41" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_41" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 358\n'
+                    )
+                }
+                if (nodeId === "n_0_44" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_44" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 386\n'
+                    )
+                }
+                if (nodeId === "n_0_47" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_47" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 414\n'
+                    )
+                }
+                if (nodeId === "n_0_50" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_50" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 442\n'
+                    )
+                }
+                if (nodeId === "n_0_53" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_53" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 520 470\n'
+                    )
+                }
+                if (nodeId === "n_0_187" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_187" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1612 1340\n'
+                    )
+                }
+                if (nodeId === "n_0_191" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_191" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1164 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_192" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_192" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1200 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_193" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_193" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1236 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_194" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_194" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1272 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_195" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_195" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1308 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_196" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_196" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1344 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_197" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_197" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1380 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_198" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_198" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1416 1380\n'
+                    )
+                }
+                if (nodeId === "n_0_204" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_204" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 206 1680\n'
+                    )
+                }
+                if (nodeId === "n_0_246" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_246" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 736 1680\n'
+                    )
+                }
+                if (nodeId === "n_0_288" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_288" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 1266 1680\n'
+                    )
+                }
+                if (nodeId === "n_0_334" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_334" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 628 2170\n'
+                    )
+                }
+                if (nodeId === "n_0_338" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_338" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 52 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_339" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_339" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 94 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_340" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_340" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 136 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_341" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_341" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 178 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_342" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_342" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 220 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_343" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_343" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 262 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_344" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_344" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 304 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_345" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_345" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 346 2214\n'
+                    )
+                }
+                if (nodeId === "n_0_346" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_346" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 52 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_347" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_347" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 94 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_348" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_348" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 136 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_349" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_349" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 178 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_350" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_350" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 220 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_351" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_351" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 262 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_352" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_352" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 304 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_353" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_353" portletId "0"\n'
+                        + '	* type "msg"\n'
+                        + '	* position 346 2246\n'
+                    )
+                }
+                if (nodeId === "n_0_57" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_57" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_63" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_63" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_71" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_71" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_79" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_79" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_90" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_90" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_98" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_98" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_109" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_109" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_120" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_120" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_128" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_128" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_136" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_136" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_144" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_144" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_152" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_152" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_160" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_160" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_168" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_168" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_176" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_176" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_202" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_202" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_244" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_244" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_286" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_286" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }
+                if (nodeId === "n_0_328" && portletId === "0") {
+                    console.log('Message received from :\n'
+                        + '	* nodeId "n_0_328" portletId "0"\n'
+                        + '	* type "receive"\n'
+                        + '	* receive "kfb_step"'
+                    )
+                }                
+            }
+
+        </script>
+    </body>
+</html>
