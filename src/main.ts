@@ -123,11 +123,139 @@ async function renderPreview(entry: PatchEntry, container: HTMLElement): Promise
     }
     const source = await response.text();
     const view = parsePdPatch(source);
-    container.replaceChildren(renderPdSvg(view));
+    container.replaceChildren(createPatchViewport(renderPdSvg(view), view.canvas));
   } catch {
     container.textContent = "patch preview unavailable";
     container.classList.add("is-error");
   }
+}
+
+function createPatchViewport(
+  svg: SVGSVGElement,
+  canvas: { width: number; height: number }
+): HTMLElement {
+  const shell = document.createElement("div");
+  shell.className = "patch-viewport-shell";
+
+  const viewport = document.createElement("div");
+  viewport.className = "patch-viewport";
+  viewport.tabIndex = 0;
+  viewport.setAttribute("aria-label", "Pure Data patch preview");
+
+  const stage = document.createElement("div");
+  stage.className = "patch-viewport-stage";
+  stage.append(svg);
+
+  const controls = document.createElement("div");
+  controls.className = "patch-viewport-controls";
+
+  const zoomOut = createViewportButton("-", "Zoom out");
+  const fit = createViewportButton("Fit", "Fit patch");
+  const zoomIn = createViewportButton("+", "Zoom in");
+  controls.append(zoomOut, fit, zoomIn);
+
+  viewport.append(stage);
+  shell.append(viewport, controls);
+
+  const minZoom = 0.08;
+  const maxZoom = 2.5;
+  let zoom = 1;
+
+  function fitZoom(): number {
+    const availableWidth = Math.max(viewport.clientWidth - 2, 1);
+    return clamp(availableWidth / canvas.width, minZoom, 1);
+  }
+
+  function setZoom(nextZoom: number, anchorX = viewport.clientWidth / 2, anchorY = viewport.clientHeight / 2): void {
+    const previousZoom = zoom;
+    const boundedZoom = clamp(nextZoom, minZoom, maxZoom);
+    if (boundedZoom === previousZoom) return;
+
+    const contentX = (viewport.scrollLeft + anchorX) / previousZoom;
+    const contentY = (viewport.scrollTop + anchorY) / previousZoom;
+    zoom = boundedZoom;
+
+    const scaledWidth = Math.max(canvas.width * zoom, viewport.clientWidth);
+    const scaledHeight = Math.max(canvas.height * zoom, viewport.clientHeight);
+    stage.style.width = `${scaledWidth}px`;
+    stage.style.height = `${scaledHeight}px`;
+    svg.style.width = `${canvas.width * zoom}px`;
+    svg.style.height = `${canvas.height * zoom}px`;
+
+    window.requestAnimationFrame(() => {
+      viewport.scrollLeft = contentX * zoom - anchorX;
+      viewport.scrollTop = contentY * zoom - anchorY;
+    });
+  }
+
+  zoomOut.addEventListener("click", () => setZoom(zoom / 1.22));
+  zoomIn.addEventListener("click", () => setZoom(zoom * 1.22));
+  fit.addEventListener("click", () => {
+    setZoom(fitZoom(), 0, 0);
+    viewport.scrollLeft = 0;
+    viewport.scrollTop = 0;
+  });
+
+  viewport.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const nextZoom = zoom * (event.deltaY > 0 ? 0.9 : 1.1);
+      setZoom(nextZoom, event.clientX - rect.left, event.clientY - rect.top);
+    },
+    { passive: false }
+  );
+
+  let isPanning = false;
+  let startX = 0;
+  let startY = 0;
+  let startScrollLeft = 0;
+  let startScrollTop = 0;
+
+  viewport.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) return;
+    isPanning = true;
+    startX = event.clientX;
+    startY = event.clientY;
+    startScrollLeft = viewport.scrollLeft;
+    startScrollTop = viewport.scrollTop;
+    viewport.classList.add("is-panning");
+    viewport.setPointerCapture(event.pointerId);
+  });
+
+  viewport.addEventListener("pointermove", (event) => {
+    if (!isPanning) return;
+    viewport.scrollLeft = startScrollLeft - (event.clientX - startX);
+    viewport.scrollTop = startScrollTop - (event.clientY - startY);
+  });
+
+  viewport.addEventListener("pointerup", (event) => {
+    isPanning = false;
+    viewport.classList.remove("is-panning");
+    viewport.releasePointerCapture(event.pointerId);
+  });
+
+  viewport.addEventListener("pointercancel", () => {
+    isPanning = false;
+    viewport.classList.remove("is-panning");
+  });
+
+  window.requestAnimationFrame(() => {
+    setZoom(fitZoom(), 0, 0);
+  });
+
+  return shell;
+}
+
+function createViewportButton(label: string, title: string): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.className = "patch-viewport-button";
+  button.type = "button";
+  button.textContent = label;
+  button.title = title;
+  button.setAttribute("aria-label", title);
+  return button;
 }
 
 function showToast(card: HTMLElement, message: string): void {
@@ -149,4 +277,8 @@ function escapeHtml(value: string): string {
 function downloadFileName(entry: PatchEntry): string {
   const fileName = entry.downloadPath.split("/").pop();
   return fileName || `${entry.id}.pd`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

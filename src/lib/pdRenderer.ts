@@ -6,6 +6,9 @@ export function renderPdSvg(view: PdPatchView): SVGSVGElement {
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", "Pure Data patch preview");
   svg.classList.add("pd-canvas");
+  if (isDensePatch(view)) {
+    svg.classList.add("is-dense");
+  }
 
   const connectionLayer = createSvgElement("g");
   connectionLayer.classList.add("pd-connections");
@@ -54,4 +57,8 @@ export function renderPdSvg(view: PdPatchView): SVGSVGElement {
 
 function createSvgElement<K extends keyof SVGElementTagNameMap>(name: K): SVGElementTagNameMap[K] {
   return document.createElementNS("http://www.w3.org/2000/svg", name);
+}
+
+function isDensePatch(view: PdPatchView): boolean {
+  return view.nodes.length > 120 || view.connections.length > 160;
 }
