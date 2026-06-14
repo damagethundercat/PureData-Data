@@ -10,6 +10,7 @@ export type PatchEntry = {
   playback: {
     status: PlaybackStatus;
     compiledPath?: string;
+    startupMessages?: boolean;
     error?: string;
   };
 };

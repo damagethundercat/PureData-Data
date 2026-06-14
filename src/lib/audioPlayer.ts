@@ -101,15 +101,17 @@ export class PatchAudioPlayer {
     const patchUrl = assetUrl(`${appPath}/patch.wasm`);
     const sourceUrl = assetUrl(entry.pdPath);
 
+    const audioContext = this.audioContext ?? new AudioContext();
+    this.audioContext = audioContext;
+
+    await resumeAudioContext(audioContext);
+
     await loadWebPdRuntime(runtimeUrl);
 
     const runtime = window.WebPdRuntime;
     if (!runtime) {
       throw new Error("WebPd runtime did not initialize.");
     }
-
-    const audioContext = this.audioContext ?? new AudioContext();
-    this.audioContext = audioContext;
 
     if (!initializedContexts.has(audioContext)) {
       await runtime.initialize(audioContext);
@@ -124,12 +126,9 @@ export class PatchAudioPlayer {
       throw new Error(`Could not load ${patchUrl}`);
     }
 
-    if (audioContext.state === "suspended") {
-      await audioContext.resume();
-    }
-
     const patch = await patchResponse.arrayBuffer();
-    const startupMessageIds = await getStartupMessageIds(runtime, patch, pdSource);
+    const startupMessageIds =
+      entry.playback.startupMessages === false ? [] : await getStartupMessageIds(runtime, patch, pdSource);
     let sawSoundFileRead = false;
     const settings = runtime.defaultSettingsForRun(patchUrl, () => undefined);
     const webpdNode = await runtime.run(audioContext, patch, {
@@ -187,6 +186,17 @@ function loadWebPdRuntime(runtimeUrl: string): Promise<void> {
   });
 
   return runtimeLoadPromise;
+}
+
+async function resumeAudioContext(audioContext: AudioContext): Promise<void> {
+  if (audioContext.state !== "suspended") return;
+
+  await Promise.race([
+    audioContext.resume(),
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error("Audio context could not be resumed.")), 3000);
+    })
+  ]);
 }
 
 async function getStartupMessageIds(

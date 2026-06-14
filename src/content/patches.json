@@ -1,5 +1,42 @@
 [
   {
+    "id": "dachan-ambient-gem",
+    "participantName": "정다찬",
+    "title": "ambient_gem",
+    "description": "고요한 앰비언트와 함께 GEM을 이용한 사운드 비주얼라이징 작업. '딸깍'의 무서움을 제대로 느꼈습니다...",
+    "pdPath": "patches/dachan-ambient-gem/main.pd",
+    "downloadPath": "patches/dachan-ambient-gem/main.pd",
+    "playback": {
+      "status": "download-only",
+      "error": "11 object types not implemented : [gemwin], [gemhead], [color], [circle], [translateXYZ], [part_head], [part_size], [part_velocity], [part_source], [part_killold], [part_draw]"
+    }
+  },
+  {
+    "id": "dachan-epic-orchestra",
+    "participantName": "정다찬",
+    "title": "Epic_orchestra",
+    "description": "Tone.js에서 제공하는 고품질의 클래식 악기 샘플들을 사용하여 만든 샘플링 기반의 PD 작업입니다. 샘플 파일만으로도 AI가 충분히 인식하고 작업을 만들어낼 수 있다니, 말 그대로 \"이게 되네\" 입니다.",
+    "pdPath": "patches/dachan-epic-orchestra/main.pd",
+    "downloadPath": "downloads/dachan-epic-orchestra.zip",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/dachan-epic-orchestra",
+      "startupMessages": false
+    }
+  },
+  {
+    "id": "myung-howtolovetheworld",
+    "participantName": "명의정",
+    "title": "howtolovetheworld",
+    "description": "TouchDesigner OSC 연동과 샘플 기반 앰비언트 코드 루프를 포함한 Pure Data 작업입니다. 샘플 폴더를 패치 파일 옆에 두고 실행해야 합니다.",
+    "pdPath": "patches/myung-howtolovetheworld/main.pd",
+    "downloadPath": "downloads/myung-howtolovetheworld.zip",
+    "playback": {
+      "status": "download-only",
+      "error": "4 object types not implemented : [rev3~], [env~], [netsend], [oscformat]"
+    }
+  },
+  {
     "id": "basic-tone",
     "participantName": "Participant A",
     "title": "Sine Tone Study",
