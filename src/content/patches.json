@@ -37,6 +37,18 @@
     }
   },
   {
+    "id": "hong-classical-drone-ambient",
+    "participantName": "홍경진",
+    "title": "classical drone ambient",
+    "description": "현악기 샘플을 이용해서 클래식같은 앰비언트 음악을 만들고 싶었는데 쉽지않군요… ",
+    "pdPath": "patches/hong-classical-drone-ambient/main.pd",
+    "downloadPath": "downloads/hong-classical-drone-ambient.zip",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/hong-classical-drone-ambient"
+    }
+  },
+  {
     "id": "basic-tone",
     "participantName": "Participant A",
     "title": "Sine Tone Study",
