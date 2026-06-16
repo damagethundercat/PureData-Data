@@ -6,6 +6,7 @@ import { PatchAudioPlayer } from "./lib/audioPlayer";
 import { parsePdPatch } from "./lib/pdParser";
 import { renderPdSvg } from "./lib/pdRenderer";
 
+const isRedirectingToHttps = redirectToHttpsIfNeeded();
 const patches = patchesData as PatchEntry[];
 const app = document.querySelector<HTMLDivElement>("#app");
 
@@ -23,8 +24,18 @@ const player = new PatchAudioPlayer((activeId) => {
 });
 const videoModal = createVideoModal();
 
-document.body.append(videoModal.element);
-app.append(createPage());
+if (!isRedirectingToHttps) {
+  document.body.append(videoModal.element);
+  app.append(createPage());
+}
+
+function redirectToHttpsIfNeeded(): boolean {
+  const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+  if (window.location.protocol !== "http:" || isLocalhost) return false;
+
+  window.location.replace(`https:${window.location.href.slice(window.location.protocol.length)}`);
+  return true;
+}
 
 function createPage(): HTMLElement {
   const page = document.createElement("section");
@@ -109,7 +120,7 @@ function createPatchCard(entry: PatchEntry): HTMLElement {
         await player.toggle(entry);
       } catch (error) {
         console.error("Playback could not be started.", error);
-        showToast(card, "Playback could not be started.");
+        showToast(card, playbackErrorMessage(error));
       } finally {
         play.disabled = false;
       }
@@ -368,6 +379,14 @@ function downloadLabel(entry: PatchEntry): string {
   if (entry.downloadPath.endsWith(".zip")) return "Download package";
   if (entry.downloadPath.endsWith(".pd")) return "Download PD";
   return "Download";
+}
+
+function playbackErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.includes("WEBPD_REQUIRES_HTTPS")) {
+    return "Playback requires HTTPS. Reloading may be needed.";
+  }
+
+  return "Playback could not be started.";
 }
 
 function clamp(value: number, min: number, max: number): number {

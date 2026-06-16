@@ -111,6 +111,10 @@ export class PatchAudioPlayer {
     const audioContext = this.audioContext ?? new AudioContext();
     this.audioContext = audioContext;
 
+    if (!window.isSecureContext || !audioContext.audioWorklet) {
+      throw new Error("WEBPD_REQUIRES_HTTPS");
+    }
+
     await resumeAudioContext(audioContext);
 
     await loadWebPdRuntime(runtimeUrl);
