@@ -111,10 +111,15 @@ export class PatchAudioPlayer {
     const audioContext = this.audioContext ?? new AudioContext();
     this.audioContext = audioContext;
 
-    if (!window.isSecureContext || !audioContext.audioWorklet) {
+    if (!window.isSecureContext) {
       throw new Error("WEBPD_REQUIRES_HTTPS");
     }
 
+    if (!audioContext.audioWorklet) {
+      throw new Error("WEBPD_REQUIRES_AUDIOWORKLET");
+    }
+
+    await unlockAudioOutput(audioContext);
     await resumeAudioContext(audioContext);
 
     await loadWebPdRuntime(runtimeUrl);
@@ -174,6 +179,7 @@ export class PatchAudioPlayer {
     right.connect(mono);
     mono.connect(boost);
     boost.connect(audioContext.destination);
+    await resumeAudioContext(audioContext);
 
     this.webpdNode = webpdNode;
     this.liveNodes = [webpdNode, splitter, left, right, mono, boost];
@@ -192,6 +198,25 @@ export class PatchAudioPlayer {
 function sanitizeGain(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.max(0, Math.min(value, 8));
+}
+
+async function unlockAudioOutput(audioContext: AudioContext): Promise<void> {
+  const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
+  const source = audioContext.createBufferSource();
+  const gain = audioContext.createGain();
+
+  gain.gain.value = 0;
+  source.buffer = buffer;
+  source.connect(gain);
+  gain.connect(audioContext.destination);
+  source.start(0);
+  source.stop(audioContext.currentTime + 0.01);
+
+  await resumeAudioContext(audioContext);
+  window.setTimeout(() => {
+    source.disconnect();
+    gain.disconnect();
+  }, 100);
 }
 
 function loadWebPdRuntime(runtimeUrl: string): Promise<void> {

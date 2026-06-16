@@ -386,6 +386,10 @@ function playbackErrorMessage(error: unknown): string {
     return "Playback requires HTTPS. Reloading may be needed.";
   }
 
+  if (error instanceof Error && error.message.includes("WEBPD_REQUIRES_AUDIOWORKLET")) {
+    return "This browser does not support WebPd playback.";
+  }
+
   return "Playback could not be started.";
 }
 
