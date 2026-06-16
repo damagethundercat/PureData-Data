@@ -49,6 +49,10 @@ type AudioWarmup = {
   stopAfter: (delay: number) => void;
 };
 
+type MediaKeepAlive = {
+  stop: () => void;
+};
+
 declare global {
   interface Window {
     WebPdRuntime?: WebPdRuntime;
@@ -57,6 +61,7 @@ declare global {
 
 const initializedContexts = new WeakSet<AudioContext>();
 let runtimeLoadPromise: Promise<void> | null = null;
+let mediaKeepAliveUrl: string | null = null;
 const DEFAULT_STARTUP_MESSAGE_DELAYS = [3000, 3500, 3500];
 
 export class PatchAudioPlayer {
@@ -66,6 +71,7 @@ export class PatchAudioPlayer {
   private webpdNode: AudioWorkletNode | null = null;
   private liveNodes: AudioNode[] = [];
   private audioWarmup: AudioWarmup | null = null;
+  private mediaKeepAlive: MediaKeepAlive | null = null;
   private readonly onChange: PlaybackChange;
 
   constructor(onChange: PlaybackChange) {
@@ -109,6 +115,8 @@ export class PatchAudioPlayer {
 
     this.audioWarmup?.stop();
     this.audioWarmup = null;
+    this.mediaKeepAlive?.stop();
+    this.mediaKeepAlive = null;
     this.webpdNode = null;
     this.liveNodes = [];
     this.currentId = null;
@@ -134,7 +142,9 @@ export class PatchAudioPlayer {
     }
 
     const warmup = startAudioWarmup(audioContext);
+    const mediaKeepAlive = startMediaKeepAlive();
     this.audioWarmup = warmup;
+    this.mediaKeepAlive = mediaKeepAlive;
 
     try {
       await resumeAudioContext(audioContext);
@@ -186,8 +196,12 @@ export class PatchAudioPlayer {
         webpdNode.port.postMessage({ type: "destroy" });
         disconnectNodes([webpdNode, ...outputNodes]);
         warmup.stop();
+        mediaKeepAlive.stop();
         if (this.audioWarmup === warmup) {
           this.audioWarmup = null;
+        }
+        if (this.mediaKeepAlive === mediaKeepAlive) {
+          this.mediaKeepAlive = null;
         }
         return;
       }
@@ -206,8 +220,12 @@ export class PatchAudioPlayer {
       });
     } catch (error) {
       warmup.stop();
+      mediaKeepAlive.stop();
       if (this.audioWarmup === warmup) {
         this.audioWarmup = null;
+      }
+      if (this.mediaKeepAlive === mediaKeepAlive) {
+        this.mediaKeepAlive = null;
       }
       throw error;
     }
@@ -305,6 +323,93 @@ function startAudioWarmup(audioContext: AudioContext): AudioWarmup {
 
 function needsPersistentAudioWarmup(): boolean {
   return /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(navigator.userAgent);
+}
+
+function startMediaKeepAlive(): MediaKeepAlive {
+  if (!needsPersistentAudioWarmup()) {
+    return {
+      stop: () => undefined
+    };
+  }
+
+  const audio = document.createElement("audio");
+  audio.loop = true;
+  audio.preload = "auto";
+  audio.src = getMediaKeepAliveUrl();
+  audio.setAttribute("aria-hidden", "true");
+  audio.setAttribute("playsinline", "true");
+  audio.style.position = "fixed";
+  audio.style.left = "-9999px";
+  audio.style.top = "0";
+  audio.style.width = "1px";
+  audio.style.height = "1px";
+  audio.style.opacity = "0";
+  audio.style.pointerEvents = "none";
+
+  try {
+    audio.volume = 0.001;
+  } catch {
+    // iOS Safari may ignore programmatic media volume changes.
+  }
+
+  document.body.append(audio);
+
+  void audio.play().catch((error: unknown) => {
+    console.warn("Could not start Safari media audio keep-alive.", error);
+  });
+
+  return {
+    stop(): void {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      audio.remove();
+    }
+  };
+}
+
+function getMediaKeepAliveUrl(): string {
+  mediaKeepAliveUrl ??= createLowLevelSineWaveUrl();
+  return mediaKeepAliveUrl;
+}
+
+function createLowLevelSineWaveUrl(): string {
+  const sampleRate = 44100;
+  const durationSeconds = 1;
+  const channelCount = 1;
+  const bytesPerSample = 2;
+  const sampleCount = sampleRate * durationSeconds;
+  const dataSize = sampleCount * channelCount * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  writeAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeAscii(view, 8, "WAVE");
+  writeAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * channelCount * bytesPerSample, true);
+  view.setUint16(32, channelCount * bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, "data");
+  view.setUint32(40, dataSize, true);
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    const phase = (2 * Math.PI * 440 * index) / sampleRate;
+    const sample = Math.round(Math.sin(phase) * 2);
+    view.setInt16(44 + index * bytesPerSample, sample, true);
+  }
+
+  return URL.createObjectURL(new Blob([buffer], { type: "audio/wav" }));
+}
+
+function writeAscii(view: DataView, offset: number, value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
 }
 
 function loadWebPdRuntime(runtimeUrl: string): Promise<void> {
