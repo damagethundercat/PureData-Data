@@ -37,6 +37,11 @@ type WebPdMetadata = {
   };
 };
 
+type AudioWarmup = {
+  stop: () => void;
+  stopAfter: (delay: number) => void;
+};
+
 declare global {
   interface Window {
     WebPdRuntime?: WebPdRuntime;
@@ -53,6 +58,7 @@ export class PatchAudioPlayer {
   private playbackSerial = 0;
   private webpdNode: AudioWorkletNode | null = null;
   private liveNodes: AudioNode[] = [];
+  private audioWarmup: AudioWarmup | null = null;
   private readonly onChange: PlaybackChange;
 
   constructor(onChange: PlaybackChange) {
@@ -94,6 +100,8 @@ export class PatchAudioPlayer {
       node.disconnect();
     }
 
+    this.audioWarmup?.stop();
+    this.audioWarmup = null;
     this.webpdNode = null;
     this.liveNodes = [];
     this.currentId = null;
@@ -119,79 +127,104 @@ export class PatchAudioPlayer {
       throw new Error("WEBPD_REQUIRES_AUDIOWORKLET");
     }
 
-    await unlockAudioOutput(audioContext);
-    await resumeAudioContext(audioContext);
+    const warmup = startAudioWarmup(audioContext);
+    this.audioWarmup = warmup;
 
-    await loadWebPdRuntime(runtimeUrl);
+    try {
+      await resumeAudioContext(audioContext);
+      await loadWebPdRuntime(runtimeUrl);
 
-    const runtime = window.WebPdRuntime;
-    if (!runtime) {
-      throw new Error("WebPd runtime did not initialize.");
-    }
-
-    if (!initializedContexts.has(audioContext)) {
-      await runtime.initialize(audioContext);
-      initializedContexts.add(audioContext);
-    }
-
-    const [patchResponse, pdSource] = await Promise.all([
-      fetch(patchUrl),
-      fetch(sourceUrl).then((response) => (response.ok ? response.text() : "")).catch(() => "")
-    ]);
-    if (!patchResponse.ok) {
-      throw new Error(`Could not load ${patchUrl}`);
-    }
-
-    const patch = await patchResponse.arrayBuffer();
-    const startupMessageIds =
-      entry.playback.startupMessages === false ? [] : await getStartupMessageIds(runtime, patch, pdSource);
-    let sawFileActivity = false;
-    const settings = runtime.defaultSettingsForRun(patchUrl, () => undefined);
-    const webpdNode = await runtime.run(audioContext, patch, {
-      ...settings,
-      messageHandler: (node: AudioWorkletNode, messageEvent: MessageEvent<WebPdWorkletMessage>) => {
-        const functionName = messageEvent.data.payload?.functionName;
-        if (
-          messageEvent.data.type === "fs" &&
-          (functionName === "onReadSoundFile" || functionName === "onOpenSoundReadStream")
-        ) {
-          sawFileActivity = true;
-        }
-        return settings.messageHandler(node, messageEvent);
+      const runtime = window.WebPdRuntime;
+      if (!runtime) {
+        throw new Error("WebPd runtime did not initialize.");
       }
-    });
 
-    const splitter = audioContext.createChannelSplitter(2);
-    const left = audioContext.createGain();
-    const right = audioContext.createGain();
-    const mono = audioContext.createGain();
-    const boost = audioContext.createGain();
-    const outputGain = sanitizeGain(entry.playback.outputGain ?? 4.5);
+      if (!initializedContexts.has(audioContext)) {
+        await runtime.initialize(audioContext);
+        initializedContexts.add(audioContext);
+      }
 
-    left.gain.value = 0.5;
-    right.gain.value = 0.5;
-    boost.gain.value = outputGain;
+      const [patchResponse, pdSource] = await Promise.all([
+        fetch(patchUrl),
+        fetch(sourceUrl).then((response) => (response.ok ? response.text() : "")).catch(() => "")
+      ]);
+      if (!patchResponse.ok) {
+        throw new Error(`Could not load ${patchUrl}`);
+      }
 
-    webpdNode.connect(splitter);
-    splitter.connect(left, 0);
-    splitter.connect(right, 1);
-    left.connect(mono);
-    right.connect(mono);
-    mono.connect(boost);
-    boost.connect(audioContext.destination);
-    await resumeAudioContext(audioContext);
+      const patch = await patchResponse.arrayBuffer();
+      const startupMessageIds =
+        entry.playback.startupMessages === false ? [] : await getStartupMessageIds(runtime, patch, pdSource);
+      let sawFileActivity = false;
+      const settings = runtime.defaultSettingsForRun(patchUrl, () => undefined);
+      const webpdNode = await runtime.run(audioContext, patch, {
+        ...settings,
+        messageHandler: (node: AudioWorkletNode, messageEvent: MessageEvent<WebPdWorkletMessage>) => {
+          const functionName = messageEvent.data.payload?.functionName;
+          if (
+            messageEvent.data.type === "fs" &&
+            (functionName === "onReadSoundFile" || functionName === "onOpenSoundReadStream")
+          ) {
+            sawFileActivity = true;
+          }
+          return settings.messageHandler(node, messageEvent);
+        }
+      });
 
-    this.webpdNode = webpdNode;
-    this.liveNodes = [webpdNode, splitter, left, right, mono, boost];
+      const splitter = audioContext.createChannelSplitter(2);
+      const left = audioContext.createGain();
+      const right = audioContext.createGain();
+      const mono = audioContext.createGain();
+      const boost = audioContext.createGain();
+      const outputGain = sanitizeGain(entry.playback.outputGain ?? 4.5);
 
-    void sendStartupMessages(
-      webpdNode,
-      startupMessageIds,
-      entry.playback.startupMessageDelays ?? DEFAULT_STARTUP_MESSAGE_DELAYS,
-      () => this.playbackSerial !== playbackToken || sawFileActivity
-    ).catch((error: unknown) => {
-      console.warn("Could not send WebPd startup messages.", error);
-    });
+      left.gain.value = 0.5;
+      right.gain.value = 0.5;
+      boost.gain.value = outputGain;
+
+      webpdNode.connect(splitter);
+      splitter.connect(left, 0);
+      splitter.connect(right, 1);
+      left.connect(mono);
+      right.connect(mono);
+      mono.connect(boost);
+      boost.connect(audioContext.destination);
+      await resumeAudioContext(audioContext);
+
+      if (this.playbackSerial !== playbackToken) {
+        webpdNode.port.postMessage({ type: "destroy" });
+        webpdNode.disconnect();
+        splitter.disconnect();
+        left.disconnect();
+        right.disconnect();
+        mono.disconnect();
+        boost.disconnect();
+        warmup.stop();
+        if (this.audioWarmup === warmup) {
+          this.audioWarmup = null;
+        }
+        return;
+      }
+
+      this.webpdNode = webpdNode;
+      this.liveNodes = [webpdNode, splitter, left, right, mono, boost];
+      warmup.stopAfter(needsPersistentAudioWarmup() ? 1800 : 300);
+
+      void sendStartupMessages(
+        webpdNode,
+        startupMessageIds,
+        entry.playback.startupMessageDelays ?? DEFAULT_STARTUP_MESSAGE_DELAYS,
+        () => this.playbackSerial !== playbackToken || sawFileActivity
+      ).catch((error: unknown) => {
+        console.warn("Could not send WebPd startup messages.", error);
+      });
+    } catch (error) {
+      warmup.stop();
+      if (this.audioWarmup === warmup) {
+        this.audioWarmup = null;
+      }
+      throw error;
+    }
   }
 }
 
@@ -200,23 +233,53 @@ function sanitizeGain(value: number): number {
   return Math.max(0, Math.min(value, 8));
 }
 
-async function unlockAudioOutput(audioContext: AudioContext): Promise<void> {
-  const buffer = audioContext.createBuffer(1, 1, audioContext.sampleRate);
-  const source = audioContext.createBufferSource();
+function startAudioWarmup(audioContext: AudioContext): AudioWarmup {
+  const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
+  let stopTimer = 0;
+  let fadeTimer = 0;
+  let isStopped = false;
 
-  gain.gain.value = 0;
-  source.buffer = buffer;
-  source.connect(gain);
+  oscillator.type = "sine";
+  oscillator.frequency.value = 440;
+
+  gain.gain.value = needsPersistentAudioWarmup() ? 0.00001 : 0;
+  oscillator.connect(gain);
   gain.connect(audioContext.destination);
-  source.start(0);
-  source.stop(audioContext.currentTime + 0.01);
+  oscillator.start();
 
-  await resumeAudioContext(audioContext);
-  window.setTimeout(() => {
-    source.disconnect();
+  const stop = () => {
+    if (isStopped) return;
+    isStopped = true;
+    window.clearTimeout(stopTimer);
+    window.clearTimeout(fadeTimer);
+
+    try {
+      oscillator.stop();
+    } catch {
+      // Oscillator may already be stopped on some WebKit builds.
+    }
+
+    oscillator.disconnect();
     gain.disconnect();
-  }, 100);
+  };
+
+  return {
+    stop,
+    stopAfter(delay: number): void {
+      window.clearTimeout(stopTimer);
+      stopTimer = window.setTimeout(() => {
+        const now = audioContext.currentTime;
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setTargetAtTime(0, now, 0.03);
+        fadeTimer = window.setTimeout(stop, 120);
+      }, delay);
+    }
+  };
+}
+
+function needsPersistentAudioWarmup(): boolean {
+  return /^((?!chrome|android|crios|fxios|edgios).)*safari/i.test(navigator.userAgent);
 }
 
 function loadWebPdRuntime(runtimeUrl: string): Promise<void> {
