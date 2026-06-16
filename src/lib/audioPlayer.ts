@@ -45,10 +45,12 @@ declare global {
 
 const initializedContexts = new WeakSet<AudioContext>();
 let runtimeLoadPromise: Promise<void> | null = null;
+const DEFAULT_STARTUP_MESSAGE_DELAYS = [3000, 3500, 3500];
 
 export class PatchAudioPlayer {
   private audioContext: AudioContext | null = null;
   private currentId: string | null = null;
+  private playbackSerial = 0;
   private webpdNode: AudioWorkletNode | null = null;
   private liveNodes: AudioNode[] = [];
   private readonly onChange: PlaybackChange;
@@ -73,12 +75,17 @@ export class PatchAudioPlayer {
       return;
     }
 
-    await this.startLivePatch(entry);
+    const playbackToken = ++this.playbackSerial;
+    await this.startLivePatch(entry, playbackToken);
+    if (this.playbackSerial !== playbackToken) return;
+
     this.currentId = entry.id;
     this.onChange(this.currentId);
   }
 
   stop(): void {
+    this.playbackSerial += 1;
+
     if (this.webpdNode) {
       this.webpdNode.port.postMessage({ type: "destroy" });
     }
@@ -93,13 +100,13 @@ export class PatchAudioPlayer {
     this.onChange(this.currentId);
   }
 
-  private async startLivePatch(entry: PatchEntry): Promise<void> {
+  private async startLivePatch(entry: PatchEntry, playbackToken: number): Promise<void> {
     if (!entry.playback.compiledPath) return;
 
     const appPath = `${entry.playback.compiledPath.replace(/\/$/, "")}/app`;
     const runtimeUrl = assetUrl(`${appPath}/webpd-runtime.js`);
     const patchUrl = assetUrl(`${appPath}/patch.wasm`);
-    const sourceUrl = assetUrl(entry.pdPath);
+    const sourceUrl = assetUrl(entry.playback.sourcePath ?? entry.pdPath);
 
     const audioContext = this.audioContext ?? new AudioContext();
     this.audioContext = audioContext;
@@ -129,16 +136,17 @@ export class PatchAudioPlayer {
     const patch = await patchResponse.arrayBuffer();
     const startupMessageIds =
       entry.playback.startupMessages === false ? [] : await getStartupMessageIds(runtime, patch, pdSource);
-    let sawSoundFileRead = false;
+    let sawFileActivity = false;
     const settings = runtime.defaultSettingsForRun(patchUrl, () => undefined);
     const webpdNode = await runtime.run(audioContext, patch, {
       ...settings,
       messageHandler: (node: AudioWorkletNode, messageEvent: MessageEvent<WebPdWorkletMessage>) => {
+        const functionName = messageEvent.data.payload?.functionName;
         if (
           messageEvent.data.type === "fs" &&
-          messageEvent.data.payload?.functionName === "onReadSoundFile"
+          (functionName === "onReadSoundFile" || functionName === "onOpenSoundReadStream")
         ) {
-          sawSoundFileRead = true;
+          sawFileActivity = true;
         }
         return settings.messageHandler(node, messageEvent);
       }
@@ -149,10 +157,11 @@ export class PatchAudioPlayer {
     const right = audioContext.createGain();
     const mono = audioContext.createGain();
     const boost = audioContext.createGain();
+    const outputGain = sanitizeGain(entry.playback.outputGain ?? 4.5);
 
     left.gain.value = 0.5;
     right.gain.value = 0.5;
-    boost.gain.value = 4.5;
+    boost.gain.value = outputGain;
 
     webpdNode.connect(splitter);
     splitter.connect(left, 0);
@@ -165,8 +174,20 @@ export class PatchAudioPlayer {
     this.webpdNode = webpdNode;
     this.liveNodes = [webpdNode, splitter, left, right, mono, boost];
 
-    await sendStartupMessages(webpdNode, startupMessageIds, () => sawSoundFileRead);
+    void sendStartupMessages(
+      webpdNode,
+      startupMessageIds,
+      entry.playback.startupMessageDelays ?? DEFAULT_STARTUP_MESSAGE_DELAYS,
+      () => this.playbackSerial !== playbackToken || sawFileActivity
+    ).catch((error: unknown) => {
+      console.warn("Could not send WebPd startup messages.", error);
+    });
   }
+}
+
+function sanitizeGain(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(0, Math.min(value, 8));
 }
 
 function loadWebPdRuntime(runtimeUrl: string): Promise<void> {
@@ -215,21 +236,24 @@ async function getStartupMessageIds(
 async function sendStartupMessages(
   webpdNode: AudioWorkletNode,
   nodeIds: string[],
+  delays: number[],
   shouldSkip: () => boolean
 ): Promise<void> {
   if (nodeIds.length === 0) return;
 
-  await new Promise((resolve) => window.setTimeout(resolve, 1200));
-  if (shouldSkip()) return;
+  for (const delay of delays) {
+    await new Promise((resolve) => window.setTimeout(resolve, delay));
+    if (shouldSkip()) return;
 
-  for (const nodeId of nodeIds) {
-    webpdNode.port.postMessage({
-      type: "io:messageReceiver",
-      payload: {
-        nodeId,
-        portletId: "0",
-        message: ["bang"]
-      }
-    });
+    for (const nodeId of nodeIds) {
+      webpdNode.port.postMessage({
+        type: "io:messageReceiver",
+        payload: {
+          nodeId,
+          portletId: "0",
+          message: ["bang"]
+        }
+      });
+    }
   }
 }

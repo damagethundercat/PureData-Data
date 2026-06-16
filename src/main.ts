@@ -21,7 +21,9 @@ const player = new PatchAudioPlayer((activeId) => {
     button.setAttribute("aria-pressed", `${isActive}`);
   }
 });
+const videoModal = createVideoModal();
 
+document.body.append(videoModal.element);
 app.append(createPage());
 
 function createPage(): HTMLElement {
@@ -51,6 +53,7 @@ function createPage(): HTMLElement {
 function createPatchCard(entry: PatchEntry): HTMLElement {
   const card = document.createElement("article");
   card.className = `patch-card ${entry.playback.status === "playable" ? "is-playable" : "is-download-only"}`;
+  card.dataset.entryId = entry.id;
 
   const header = document.createElement("div");
   header.className = "patch-card-header";
@@ -80,21 +83,33 @@ function createPatchCard(entry: PatchEntry): HTMLElement {
   download.className = "button";
   download.href = assetUrl(entry.downloadPath);
   download.download = downloadFileName(entry);
-  download.textContent = entry.downloadPath.endsWith(".zip") ? "Download package" : "Download";
+  download.textContent = downloadLabel(entry);
   actions.append(download);
+
+  if (entry.videoPath) {
+    const video = document.createElement("button");
+    video.className = "button";
+    video.type = "button";
+    video.textContent = "Video";
+    video.setAttribute("aria-label", `Open video for ${entry.title}`);
+    video.addEventListener("click", () => videoModal.open(entry));
+    actions.append(video);
+  }
 
   if (entry.playback.status === "playable") {
     const play = document.createElement("button");
     play.className = "button button-primary";
     play.type = "button";
+    play.dataset.playEntryId = entry.id;
     play.textContent = "Play";
     play.setAttribute("aria-pressed", "false");
     play.addEventListener("click", async () => {
       play.disabled = true;
       try {
         await player.toggle(entry);
-      } catch {
-        showToast(card, "Audio preview could not be started.");
+      } catch (error) {
+        console.error("Playback could not be started.", error);
+        showToast(card, "Playback could not be started.");
       } finally {
         play.disabled = false;
       }
@@ -103,16 +118,86 @@ function createPatchCard(entry: PatchEntry): HTMLElement {
     actions.append(play);
   }
 
-  if (entry.playback.status === "download-only" && entry.playback.error) {
-    const fallback = document.createElement("p");
-    fallback.className = "fallback-note";
-    fallback.textContent = entry.playback.error;
-    card.append(header, preview, description, actions, fallback);
-    return card;
-  }
-
   card.append(header, preview, description, actions);
   return card;
+}
+
+function createVideoModal(): { element: HTMLDialogElement; open: (entry: PatchEntry) => void } {
+  const dialog = document.createElement("dialog");
+  dialog.className = "video-dialog";
+
+  const header = document.createElement("div");
+  header.className = "video-dialog-header";
+
+  const meta = document.createElement("div");
+  meta.className = "video-dialog-meta";
+
+  const participant = document.createElement("p");
+  participant.className = "participant";
+
+  const title = document.createElement("h2");
+
+  const close = document.createElement("button");
+  close.className = "button video-dialog-close";
+  close.type = "button";
+  close.textContent = "x";
+  close.setAttribute("aria-label", "Close video");
+
+  const video = document.createElement("video");
+  video.controls = true;
+  video.preload = "metadata";
+  video.playsInline = true;
+
+  meta.append(participant, title);
+  header.append(meta, close);
+  dialog.append(header, video);
+
+  function closeDialog(): void {
+    video.pause();
+    video.removeAttribute("src");
+    video.removeAttribute("poster");
+    video.load();
+
+    if (dialog.open && typeof dialog.close === "function") {
+      dialog.close();
+      return;
+    }
+
+    dialog.removeAttribute("open");
+  }
+
+  close.addEventListener("click", closeDialog);
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeDialog();
+  });
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) closeDialog();
+  });
+
+  return {
+    element: dialog,
+    open(entry: PatchEntry): void {
+      if (!entry.videoPath) return;
+
+      participant.textContent = entry.participantName;
+      title.textContent = entry.title;
+      video.src = assetUrl(entry.videoPath);
+
+      if (entry.videoPosterPath) {
+        video.poster = assetUrl(entry.videoPosterPath);
+      } else {
+        video.removeAttribute("poster");
+      }
+
+      if (typeof dialog.showModal === "function") {
+        dialog.showModal();
+        return;
+      }
+
+      dialog.setAttribute("open", "");
+    }
+  };
 }
 
 async function renderPreview(entry: PatchEntry, container: HTMLElement): Promise<void> {
@@ -277,6 +362,12 @@ function escapeHtml(value: string): string {
 function downloadFileName(entry: PatchEntry): string {
   const fileName = entry.downloadPath.split("/").pop();
   return fileName || `${entry.id}.pd`;
+}
+
+function downloadLabel(entry: PatchEntry): string {
+  if (entry.downloadPath.endsWith(".zip")) return "Download package";
+  if (entry.downloadPath.endsWith(".pd")) return "Download PD";
+  return "Download";
 }
 
 function clamp(value: number, min: number, max: number): number {

@@ -14,13 +14,19 @@ const entries = JSON.parse(readFileSync(manifestPath, "utf8"));
 mkdirSync(compiledDir, { recursive: true });
 
 const updatedEntries = entries.map((entry) => {
-  const patchPath = join(publicDir, entry.pdPath);
+  const playbackSourcePath = entry.playback?.sourcePath ?? entry.pdPath;
+  const patchPath = join(publicDir, playbackSourcePath);
   const outDir = join(compiledDir, entry.id);
   const appDir = join(outDir, "app");
   const previewPath = join(outDir, "preview.wav");
 
+  if (entry.playback?.compile === false) {
+    rmSync(outDir, { recursive: true, force: true });
+    return markDownloadOnly(entry, entry.playback.error || "WebPd playback disabled for this patch.");
+  }
+
   if (!existsSync(patchPath)) {
-    return markDownloadOnly(entry, `Patch file not found: ${entry.pdPath}`);
+    return markDownloadOnly(entry, `Patch file not found: ${playbackSourcePath}`);
   }
 
   rmSync(outDir, { recursive: true, force: true });
@@ -57,6 +63,7 @@ const updatedEntries = entries.map((entry) => {
   return {
     ...entry,
     playback: {
+      ...entry.playback,
       status: "playable",
       compiledPath: `compiled/${entry.id}`,
       error: undefined
@@ -79,7 +86,9 @@ function markDownloadOnly(entry, error) {
   return {
     ...entry,
     playback: {
+      ...entry.playback,
       status: "download-only",
+      compiledPath: undefined,
       error
     }
   };

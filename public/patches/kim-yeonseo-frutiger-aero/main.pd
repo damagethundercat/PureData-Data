@@ -16,7 +16,7 @@
 #X obj 198 250 + 1;
 #X obj 266 250 mod 16;
 #X obj 266 290 mod 64;
-#X floatatom 346 250 5 0 0 step - - 0;
+#X floatatom 346 250 5 0 0 0 step - - 0;
 #X text 50 350 --- Real-Time GUI Sliders ---;
 #X msg 50 380 0;
 #X obj 130 380 hsl 128 15 -12 12 0 0 empty Transpose-Key Transpose-Key -2 -8 0 10 -262144 -1 -1 0 1;
@@ -277,10 +277,10 @@
 #X obj 1360 640 *~;
 #X obj 1360 680 *~ 0.15;
 #X text 50 1250 --- Audio Sampler (Cute Pitched-up Wave Files) ---;
-#X obj 50 1280 array define sample_bloop 1000;
-#X obj 50 1310 array define sample_water 1000;
-#X obj 50 1340 array define sample_pop 1000;
-#X obj 50 1370 array define sample_chirp 1000;
+#X obj 50 1280 table sample_bloop 1000;
+#X obj 50 1310 table sample_water 1000;
+#X obj 50 1340 table sample_pop 1000;
+#X obj 50 1370 table sample_chirp 1000;
 #X obj 200 1280 loadbang;
 #X obj 200 1310 delay 100;
 #X msg 200 1350 read -resize cute-bloop.wav sample_bloop;

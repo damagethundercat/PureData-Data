@@ -7,10 +7,16 @@ export type PatchEntry = {
   description?: string;
   pdPath: string;
   downloadPath: string;
+  videoPath?: string;
+  videoPosterPath?: string;
   playback: {
     status: PlaybackStatus;
     compiledPath?: string;
+    sourcePath?: string;
+    compile?: boolean;
     startupMessages?: boolean;
+    startupMessageDelays?: number[];
+    outputGain?: number;
     error?: string;
   };
 };

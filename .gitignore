@@ -4,3 +4,6 @@ node_modules/
 dist/
 dev-server.*.log
 dev-server.pid
+/*.MOV
+/*.mov
+/*.mp4

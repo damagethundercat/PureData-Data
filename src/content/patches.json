@@ -6,6 +6,7 @@
     "description": "고요한 앰비언트와 함께 GEM을 이용한 사운드 비주얼라이징 작업. '딸깍'의 무서움을 제대로 느꼈습니다...",
     "pdPath": "patches/dachan-ambient-gem/main.pd",
     "downloadPath": "patches/dachan-ambient-gem/main.pd",
+    "videoPath": "videos/dachan-ambient-gem.mp4",
     "playback": {
       "status": "download-only",
       "error": "11 object types not implemented : [gemwin], [gemhead], [color], [circle], [translateXYZ], [part_head], [part_size], [part_velocity], [part_source], [part_killold], [part_draw]"
@@ -31,6 +32,7 @@
     "description": "TouchDesigner OSC 연동과 샘플 기반 앰비언트 코드 루프를 포함한 Pure Data 작업입니다. 샘플 폴더를 패치 파일 옆에 두고 실행해야 합니다.",
     "pdPath": "patches/myung-howtolovetheworld/main.pd",
     "downloadPath": "downloads/myung-howtolovetheworld.zip",
+    "videoPath": "videos/myung-howtolovetheworld.mp4",
     "playback": {
       "status": "download-only",
       "error": "4 object types not implemented : [rev3~], [env~], [netsend], [oscformat]"
@@ -43,9 +45,11 @@
     "description": "현악기 샘플을 이용해서 클래식같은 앰비언트 음악을 만들고 싶었는데 쉽지않군요… ",
     "pdPath": "patches/hong-classical-drone-ambient/main.pd",
     "downloadPath": "downloads/hong-classical-drone-ambient.zip",
+    "videoPath": "videos/hong-classical-drone-ambient.mp4",
     "playback": {
-      "status": "playable",
-      "compiledPath": "compiled/hong-classical-drone-ambient"
+      "status": "download-only",
+      "compile": false,
+      "error": "Video documentation is used instead of WebPd playback for this sample-heavy patch."
     }
   },
   {
@@ -56,44 +60,61 @@
     "pdPath": "patches/kim-yeonseo-frutiger-aero/main.pd",
     "downloadPath": "downloads/kim-yeonseo-frutiger-aero.zip",
     "playback": {
-      "status": "download-only",
-      "error": "WebPd parse/support failure: line 19 floatatom step; unsupported [swap]."
-    }
-  },
-  {
-    "id": "basic-tone",
-    "participantName": "Participant A",
-    "title": "Sine Tone Study",
-    "description": "A minimal oscillator patch for checking the WebPd compile path.",
-    "pdPath": "patches/basic-tone/main.pd",
-    "downloadPath": "patches/basic-tone/main.pd",
-    "playback": {
       "status": "playable",
-      "compiledPath": "compiled/basic-tone"
-    }
-  },
-  {
-    "id": "unsupported-gem",
-    "participantName": "Participant B",
-    "title": "Visual Patch Sketch",
-    "description": "A patch that intentionally includes an unsupported object for fallback testing.",
-    "pdPath": "patches/unsupported-gem/main.pd",
-    "downloadPath": "patches/unsupported-gem/main.pd",
-    "playback": {
-      "status": "download-only",
-      "error": "1 object types not implemented : [gemwin]"
+      "compiledPath": "compiled/kim-yeonseo-frutiger-aero"
     }
   },
   {
     "id": "kawaii-future-bass-burst",
-    "participantName": "Demo Package",
+    "participantName": "김용규",
     "title": "Kawaii Future Bass Burst",
-    "description": "A packaged Pd Vanilla patch with included WAV samples and a 160 BPM sequencer.",
+    "description": "메챠 카와이한 사운드 샘플들로 만들어진..카와이 퓨처 베이스입니다..곤니치와..",
     "pdPath": "patches/kawaii-future-bass-burst/main.pd",
     "downloadPath": "downloads/kawaii-future-bass-burst.zip",
     "playback": {
       "status": "playable",
       "compiledPath": "compiled/kawaii-future-bass-burst"
+    }
+  },
+  {
+    "id": "kim-yonggyu-no-pain",
+    "participantName": "김용규",
+    "title": "No Pain 훔치기",
+    "description": "실리카겔의 No Pain 코드 진행을 따와서 다시 만들어봤습니다. 아주 집중해서 잘.. 들으면 들릴 수도 있습니다 ..",
+    "pdPath": "patches/kim-yonggyu-no-pain/main.pd",
+    "downloadPath": "downloads/kim-yonggyu-no-pain.zip",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/kim-yonggyu-no-pain",
+      "sourcePath": "patches/kim-yonggyu-no-pain/webpd.pd",
+      "startupMessageDelays": [
+        1200
+      ],
+      "outputGain": 2.5
+    }
+  },
+  {
+    "id": "kim-yonggyu-nudisco",
+    "participantName": "김용규",
+    "title": "nudisco",
+    "description": "저는 누디스코를 좋아해요",
+    "pdPath": "patches/kim-yonggyu-nudisco/main.pd",
+    "downloadPath": "downloads/kim-yonggyu-nudisco.zip",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/kim-yonggyu-nudisco"
+    }
+  },
+  {
+    "id": "kim-yonggyu-just-the-phonk-of-us",
+    "participantName": "김용규",
+    "title": "Just the Phonk of Us",
+    "description": "퐁크 샘플팩을 Just the two of us 코드 위에 입힌 버전.. 기묘한 느낌이 나서 좋아합니다",
+    "pdPath": "patches/kim-yonggyu-just-the-phonk-of-us/main.pd",
+    "downloadPath": "downloads/kim-yonggyu-just-the-phonk-of-us.zip",
+    "playback": {
+      "status": "playable",
+      "compiledPath": "compiled/kim-yonggyu-just-the-phonk-of-us"
     }
   }
 ]
