@@ -39,7 +39,7 @@ const updatedEntries = entries.map((entry) => {
 
   mkdirSync(appDir, { recursive: true });
 
-  const appResult = runWebPd(["-i", patchPath, "-o", appDir, "-f", "app"]);
+  const appResult = runWebPd(["-i", patchPath, "-o", appDir, "-f", "app", "--engine", "javascript"]);
   if (appResult.status !== 0) {
     return markDownloadOnly(entry, summarizeFailure(appResult));
   }

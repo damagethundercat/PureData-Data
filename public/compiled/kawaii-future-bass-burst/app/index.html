@@ -53,8 +53,8 @@
                 await WebPdRuntime.initialize(audioContext)
 
                 // Fetch the patch code
-                response = await fetch('patch.wasm')
-                patch = await response.arrayBuffer()
+                response = await fetch('patch.js')
+                patch = await response.text()
 
                 // Comment this if you don't need audio input
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -77,7 +77,7 @@
                     audioContext, 
                     patch, 
                     WebPdRuntime.defaultSettingsForRun(
-                        './patch.wasm',
+                        './patch.js',
                         // Comment this if you don't need to receive messages from the patch
                         receiveMsgFromWebPd,
                     ),

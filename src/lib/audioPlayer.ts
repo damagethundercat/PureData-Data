@@ -6,10 +6,10 @@ type PlaybackChange = (entryId: string | null) => void;
 
 type WebPdRuntime = {
   initialize: (audioContext: AudioContext) => Promise<void>;
-  readMetadata: (compiledPatch: ArrayBuffer) => Promise<WebPdMetadata>;
+  readMetadata: (compiledPatch: CompiledPatch) => Promise<WebPdMetadata>;
   run: (
     audioContext: AudioContext,
-    compiledPatch: ArrayBuffer,
+    compiledPatch: CompiledPatch,
     settings: unknown
   ) => Promise<AudioWorkletNode>;
   defaultSettingsForRun: (
@@ -35,6 +35,13 @@ type WebPdMetadata = {
       messageReceivers?: Record<string, string[]>;
     };
   };
+};
+
+type CompiledPatch = ArrayBuffer | string;
+
+type LoadedCompiledPatch = {
+  patch: CompiledPatch;
+  url: string;
 };
 
 type AudioWarmup = {
@@ -113,7 +120,6 @@ export class PatchAudioPlayer {
 
     const appPath = `${entry.playback.compiledPath.replace(/\/$/, "")}/app`;
     const runtimeUrl = assetUrl(`${appPath}/webpd-runtime.js`);
-    const patchUrl = assetUrl(`${appPath}/patch.wasm`);
     const sourceUrl = assetUrl(entry.playback.sourcePath ?? entry.pdPath);
 
     const audioContext = this.audioContext ?? new AudioContext();
@@ -144,20 +150,18 @@ export class PatchAudioPlayer {
         initializedContexts.add(audioContext);
       }
 
-      const [patchResponse, pdSource] = await Promise.all([
-        fetch(patchUrl),
+      const [compiledPatch, pdSource] = await Promise.all([
+        loadCompiledPatch(appPath),
         fetch(sourceUrl).then((response) => (response.ok ? response.text() : "")).catch(() => "")
       ]);
-      if (!patchResponse.ok) {
-        throw new Error(`Could not load ${patchUrl}`);
-      }
 
-      const patch = await patchResponse.arrayBuffer();
       const startupMessageIds =
-        entry.playback.startupMessages === false ? [] : await getStartupMessageIds(runtime, patch, pdSource);
+        entry.playback.startupMessages === false
+          ? []
+          : await getStartupMessageIds(runtime, compiledPatch.patch, pdSource);
       let sawFileActivity = false;
-      const settings = runtime.defaultSettingsForRun(patchUrl, () => undefined);
-      const webpdNode = await runtime.run(audioContext, patch, {
+      const settings = runtime.defaultSettingsForRun(compiledPatch.url, () => undefined);
+      const webpdNode = await runtime.run(audioContext, compiledPatch.patch, {
         ...settings,
         messageHandler: (node: AudioWorkletNode, messageEvent: MessageEvent<WebPdWorkletMessage>) => {
           const functionName = messageEvent.data.payload?.functionName;
@@ -322,6 +326,30 @@ function loadWebPdRuntime(runtimeUrl: string): Promise<void> {
   return runtimeLoadPromise;
 }
 
+async function loadCompiledPatch(appPath: string): Promise<LoadedCompiledPatch> {
+  const javaScriptPatchUrl = assetUrl(`${appPath}/patch.js`);
+  const javaScriptPatchResponse = await fetch(javaScriptPatchUrl);
+
+  if (javaScriptPatchResponse.ok) {
+    return {
+      patch: await javaScriptPatchResponse.text(),
+      url: javaScriptPatchUrl
+    };
+  }
+
+  const wasmPatchUrl = assetUrl(`${appPath}/patch.wasm`);
+  const wasmPatchResponse = await fetch(wasmPatchUrl);
+
+  if (!wasmPatchResponse.ok) {
+    throw new Error(`Could not load ${javaScriptPatchUrl} or ${wasmPatchUrl}`);
+  }
+
+  return {
+    patch: await wasmPatchResponse.arrayBuffer(),
+    url: wasmPatchUrl
+  };
+}
+
 async function resumeAudioContext(audioContext: AudioContext): Promise<void> {
   if (audioContext.state !== "suspended") return;
 
@@ -335,7 +363,7 @@ async function resumeAudioContext(audioContext: AudioContext): Promise<void> {
 
 async function getStartupMessageIds(
   runtime: WebPdRuntime,
-  patch: ArrayBuffer,
+  patch: CompiledPatch,
   pdSource: string
 ): Promise<string[]> {
   const ids = findLoadbangMessageReceiverIds(pdSource);
