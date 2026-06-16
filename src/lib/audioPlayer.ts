@@ -171,34 +171,16 @@ export class PatchAudioPlayer {
         }
       });
 
-      const splitter = audioContext.createChannelSplitter(2);
-      const left = audioContext.createGain();
-      const right = audioContext.createGain();
-      const mono = audioContext.createGain();
-      const boost = audioContext.createGain();
-      const outputGain = sanitizeGain(entry.playback.outputGain ?? 4.5);
-
-      left.gain.value = 0.5;
-      right.gain.value = 0.5;
-      boost.gain.value = outputGain;
-
-      webpdNode.connect(splitter);
-      splitter.connect(left, 0);
-      splitter.connect(right, 1);
-      left.connect(mono);
-      right.connect(mono);
-      mono.connect(boost);
-      boost.connect(audioContext.destination);
+      const outputNodes = connectPatchOutput(
+        audioContext,
+        webpdNode,
+        sanitizeGain(entry.playback.outputGain ?? 4.5)
+      );
       await resumeAudioContext(audioContext);
 
       if (this.playbackSerial !== playbackToken) {
         webpdNode.port.postMessage({ type: "destroy" });
-        webpdNode.disconnect();
-        splitter.disconnect();
-        left.disconnect();
-        right.disconnect();
-        mono.disconnect();
-        boost.disconnect();
+        disconnectNodes([webpdNode, ...outputNodes]);
         warmup.stop();
         if (this.audioWarmup === warmup) {
           this.audioWarmup = null;
@@ -207,7 +189,7 @@ export class PatchAudioPlayer {
       }
 
       this.webpdNode = webpdNode;
-      this.liveNodes = [webpdNode, splitter, left, right, mono, boost];
+      this.liveNodes = [webpdNode, ...outputNodes];
       warmup.stopAfter(needsPersistentAudioWarmup() ? 1800 : 300);
 
       void sendStartupMessages(
@@ -231,6 +213,45 @@ export class PatchAudioPlayer {
 function sanitizeGain(value: number): number {
   if (!Number.isFinite(value)) return 1;
   return Math.max(0, Math.min(value, 8));
+}
+
+function connectPatchOutput(
+  audioContext: AudioContext,
+  webpdNode: AudioWorkletNode,
+  outputGain: number
+): AudioNode[] {
+  const boost = audioContext.createGain();
+  boost.gain.value = outputGain;
+
+  if (needsPersistentAudioWarmup()) {
+    webpdNode.connect(boost);
+    boost.connect(audioContext.destination);
+    return [boost];
+  }
+
+  const splitter = audioContext.createChannelSplitter(2);
+  const left = audioContext.createGain();
+  const right = audioContext.createGain();
+  const mono = audioContext.createGain();
+
+  left.gain.value = 0.5;
+  right.gain.value = 0.5;
+
+  webpdNode.connect(splitter);
+  splitter.connect(left, 0);
+  splitter.connect(right, 1);
+  left.connect(mono);
+  right.connect(mono);
+  mono.connect(boost);
+  boost.connect(audioContext.destination);
+
+  return [splitter, left, right, mono, boost];
+}
+
+function disconnectNodes(nodes: AudioNode[]): void {
+  for (const node of nodes) {
+    node.disconnect();
+  }
 }
 
 function startAudioWarmup(audioContext: AudioContext): AudioWarmup {
