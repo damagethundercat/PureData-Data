@@ -49,6 +49,18 @@
     }
   },
   {
+    "id": "kim-yeonseo-frutiger-aero",
+    "participantName": "김연서",
+    "title": "𝚏𝚛𝕦𝙩𝓘ⓖ𝓮ʀ 𝕒𝑒𝚛𝓸…  ͛  ͛",
+    "description": "보글보글 물방울 효과음을 넣은 귀여운 프루티거 에어로 사운드입니다. 미니 홈피의 BGM처럼, 나만의 작은 인터넷 공간에 슬쩍 깔아두기 좋아요.",
+    "pdPath": "patches/kim-yeonseo-frutiger-aero/main.pd",
+    "downloadPath": "downloads/kim-yeonseo-frutiger-aero.zip",
+    "playback": {
+      "status": "download-only",
+      "error": "WebPd parse/support failure: line 19 floatatom step; unsupported [swap]."
+    }
+  },
+  {
     "id": "basic-tone",
     "participantName": "Participant A",
     "title": "Sine Tone Study",
